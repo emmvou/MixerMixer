@@ -5,6 +5,13 @@ namespace MixerMixer
         public Form1()
         {
             InitializeComponent();
+
+            Settings1.Default.Profiles ??= new[] { new Profile() { Name = "Default" } };
+
+            var lst = Settings1.Default.Profiles.ToList();
+            ProfileListBox.DataSource = lst;
+            ProfileListBox.DisplayMember = nameof(Profile.Name);
+
         }
     }
 }
