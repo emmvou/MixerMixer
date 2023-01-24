@@ -45,10 +45,10 @@ namespace MixerMixer
 
         private void button3_Click(object sender, EventArgs e)
         {
-            foreach ((string name, string icon) in SetVolume.EnumerateApplications())
-                Debug.WriteLine("app + {0}; {1}", name, icon);
+            foreach (var session in SetVolume.GetAllSessions())
+                Debug.WriteLine("app + {0}; {1}", session.DisplayName, session.IconPath);
         }
-
+        
         private void button4_Click(object sender, EventArgs e)
         {
             foreach (string name in SetVolume.EnumerateApplicationsPath())

@@ -5,67 +5,40 @@ namespace MixerMixer;
 
 internal class SetVolume
 {
-    public static void TestMute(string[] args)
-    {
-        const string app = "Mozilla Firefox";
 
-        foreach (var (name, icon) in EnumerateApplications())
+    private static void Test(string app, bool setMute, float level)
+    {
+        foreach (var session in GetAllSessions())
         {
-            Console.WriteLine("name:" + name + "; icon:" + icon);
-            if (name == app)
+            Console.WriteLine("name:" + session.DisplayName + "; icon:" + session.IconPath);
+            if (session.DisplayName == app)
             {
                 // display mute state & volume level (% of master)
-                Debug.WriteLine("Mute:" + GetApplicationMute(app));
+                Debug.WriteLine(setMute ? "Mute:" : "unMute:" + GetApplicationMute(app));
                 Debug.WriteLine("Volume:" + GetApplicationVolume(app));
 
                 // mute the application
-                SetApplicationMute(app, true);
-
-                // set the volume to half of master volume (50%)
-                SetApplicationVolume(app, 50);
-            }
-        }
-    }
-
-    public static void TestUnmute(string[] args)
-    {
-        const string app = "Mozilla Firefox";
-
-        foreach (var (name, icon) in EnumerateApplications())
-        {
-            Console.WriteLine("name:" + name + "; icon:" + icon);
-            if (name == app)
-            {
-                // display mute state & volume level (% of master)
-                Debug.WriteLine("unMute:" + GetApplicationMute(app));
-                Debug.WriteLine("Volume:" + GetApplicationVolume(app));
-
-                // mute the application
-                SetApplicationMute(app, false);
-
-                // set the volume to half of master volume (50%)
-                SetApplicationVolume(app, 50);
-            }
-        }
-    }
-
-    public static void TestSetVolume(string app, float level)
-    {
-        foreach (var (name, icon) in EnumerateApplications())
-        {
-            Console.WriteLine("name:" + name + "; icon:" + icon);
-            if (name == app)
-            {
-                // display mute state & volume level (% of master)
-                Debug.WriteLine("unMute:" + GetApplicationMute(app));
-                Debug.WriteLine("Volume:" + GetApplicationVolume(app));
-
-                SetApplicationMute(app, false);
+                SetApplicationMute(app, setMute);
 
                 // todo do i have to check if the volume < 100 ?
                 SetApplicationVolume(app, level);
             }
         }
+    }
+    public static void TestMute(string[] args)
+    {
+
+        Test("Mozilla Firefox", true, 50); 
+    }
+
+    public static void TestUnmute(string[] args)
+    {
+        Test("Mozilla Firefox", false, 50);
+    }
+
+    public static void TestSetVolume(string app, float level)
+    {
+        Test(app, false, level);
     }
 
     public static float? TestGetVolume(string app)
@@ -142,6 +115,7 @@ internal class SetVolume
         Marshal.ReleaseComObject(speakers);
         Marshal.ReleaseComObject(deviceEnumerator);
     }
+    
 
     private static ISimpleAudioVolume? GetVolumeObject(string name)
     {
@@ -227,4 +201,65 @@ internal class SetVolume
         Marshal.ReleaseComObject(speakers);
         Marshal.ReleaseComObject(deviceEnumerator);
     }
+
+    public static IList<AudioSession> GetAllSessions()
+    {
+        List<AudioSession> list = new List<AudioSession>();
+        IAudioSessionManager2 mgr = GetAudioSessionManager();
+        if (mgr == null)
+            return list;
+
+        IAudioSessionEnumerator sessionEnumerator;
+        mgr.GetSessionEnumerator(out sessionEnumerator);
+        int count;
+        sessionEnumerator.GetCount(out count);
+
+        for (int i = 0; i < count; i++)
+        {
+            //sessionEnumerator.GetSession(i, out ctl);
+            //if (ctl == null)
+            //    continue;
+            sessionEnumerator.GetSession(i, out var ctl);
+            if (ctl != null)
+            {
+                list.Add(new AudioSession(ctl));
+            }
+        }
+        Marshal.ReleaseComObject(sessionEnumerator);
+        Marshal.ReleaseComObject(mgr);
+        return list;
+    }
+
+    private static IAudioSessionManager2 GetAudioSessionManager()
+    {
+        IMMDevice speakers = GetSpeakers();
+        if (speakers == null)
+            return null;
+
+        // win7+ only
+        object o;
+        var IID_IAudioSessionManager2 = typeof(IAudioSessionManager2).GUID;
+        if (speakers.Activate(ref IID_IAudioSessionManager2, 0, IntPtr.Zero, out o) != 0 || o == null)
+            return null;
+
+        return o as IAudioSessionManager2;
+    }
+
+    private static IMMDevice GetSpeakers()
+    {
+        // get the speakers (1st render + multimedia) device
+        try
+        {
+            IMMDeviceEnumerator deviceEnumerator = (IMMDeviceEnumerator)(new MMDeviceEnumerator());
+            IMMDevice speakers;
+            deviceEnumerator.GetDefaultAudioEndpoint(EDataFlow.eRender, ERole.eMultimedia, out speakers);
+            return speakers;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+
 }
